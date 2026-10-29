@@ -32,7 +32,7 @@ html, body {
 
 .welcome {
   position: fixed;
-  top: 84px; left: 50%;
+  top: 70px; left: 50%;
   transform: translate(-50%, -10px);
   text-align: center;
   opacity: 0;
@@ -73,7 +73,7 @@ html, body {
 
 .menu {
   position: fixed;
-  left: 50%; bottom: 7vh;
+  left: 50%; top: 24vh;
   transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;
@@ -132,5 +132,6 @@ html, body {
   .menu a { font-size: 1rem; padding: 10px 20px; }
   .hint { font-size: 0.72rem; bottom: 20px; }
   .top-logo { font-size: 1.2rem; top: 22px; }
-  .welcome { top: 64px; }
+  .welcome { top: 56px; }
+  .menu { top: 21vh; }
 }
