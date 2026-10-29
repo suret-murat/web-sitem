@@ -1,4 +1,18 @@
 // =====================================================================
+//  HATA YAKALAYICI (sorun olursa ekranda gösterir)
+// =====================================================================
+window.addEventListener('error', e => {
+  const box = document.getElementById('errbox');
+  if (!box) return;
+  box.style.display = 'block';
+  box.textContent = '⚠ HATA: ' + e.message +
+    '\nDosya: ' + (e.filename ? e.filename.split('/').pop() : '?') +
+    '  Satır: ' + e.lineno;
+  const l = document.getElementById('loading');
+  if (l) l.classList.add('hide');
+});
+
+// =====================================================================
 //  RENDERER & SAHNE
 // =====================================================================
 const container = document.getElementById('scene');
@@ -72,7 +86,6 @@ const fill = new THREE.DirectionalLight(0xd9e2ff, 0.25);
 fill.position.set(-5, 2, 4);
 scene.add(fill);
 
-// Havai fişek patlama ışıkları (önceden oluşturuluyor = takılma olmaz)
 const flashes = [0, 1, 2, 3].map(() => {
   const l = new THREE.PointLight(0xffd9a0, 0, 14, 2);
   scene.add(l);
@@ -92,7 +105,7 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // =====================================================================
-//  DOKULAR (kodla üretiliyor, dosya gerekmez)
+//  DOKULAR
 // =====================================================================
 function canvasTex(size, draw, srgb = true, repeat = 1) {
   const c = document.createElement('canvas');
@@ -106,7 +119,6 @@ function canvasTex(size, draw, srgb = true, repeat = 1) {
   return t;
 }
 
-// Ambalaj kağıdı (tonal desenli)
 const paperTex = canvasTex(512, (g, s) => {
   g.fillStyle = '#8a1c43';
   g.fillRect(0, 0, s, s);
@@ -129,7 +141,6 @@ const paperTex = canvasTex(512, (g, s) => {
   g.putImageData(img, 0, 0);
 }, true, 2);
 
-// Kağıt lifi (bump)
 const grainTex = canvasTex(256, (g, s) => {
   const img = g.createImageData(s, s);
   for (let i = 0; i < img.data.length; i += 4) {
@@ -140,7 +151,6 @@ const grainTex = canvasTex(256, (g, s) => {
   g.putImageData(img, 0, 0);
 }, false, 4);
 
-// Saten kurdele lifleri
 const satinTex = canvasTex(256, (g, s) => {
   for (let x = 0; x < s; x++) {
     const v = Math.floor(128 + (Math.random() - 0.5) * 60);
@@ -149,7 +159,6 @@ const satinTex = canvasTex(256, (g, s) => {
   }
 }, false);
 
-// Yumuşak parçacık
 const softTex = canvasTex(64, (g, s) => {
   const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
   gr.addColorStop(0, 'rgba(255,255,255,1)');
@@ -158,6 +167,13 @@ const softTex = canvasTex(64, (g, s) => {
   g.fillStyle = gr;
   g.fillRect(0, 0, s, s);
 }, false);
+
+const candleTex = canvasTex(128, (g, s) => {
+  g.fillStyle = '#b5173f';
+  g.fillRect(0, 0, s, s);
+  g.fillStyle = '#e3c27e';
+  for (let y = 0; y < s; y += 22) g.fillRect(0, y, s, 10);
+}, true, 1);
 
 // =====================================================================
 //  MALZEMELER
@@ -175,9 +191,11 @@ const ribbonMat = new THREE.MeshPhysicalMaterial({
   clearcoat: 0.5, clearcoatRoughness: 0.2,
   bumpMap: satinTex, bumpScale: 0.002, side: THREE.DoubleSide
 });
+const candleMat = new THREE.MeshStandardMaterial({ map: candleTex, roughness: 0.5, metalness: 0.1 });
+const fuseMat = new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 0.9 });
 
 // =====================================================================
-//  FİZİK DÜNYASI
+//  FİZİK DÜNYASI (Cannon.js)
 // =====================================================================
 const world = new CANNON.World();
 world.gravity.set(0, -9.82, 0);
@@ -195,15 +213,14 @@ function staticPlane(axis, angle) {
   return b;
 }
 const AX = new CANNON.Vec3(1, 0, 0), AY = new CANNON.Vec3(0, 1, 0);
-staticPlane(AX, -Math.PI / 2);                 // zemin
-const wallL = staticPlane(AY, Math.PI / 2);    // sol
-const wallR = staticPlane(AY, -Math.PI / 2);   // sağ
-const wallB = staticPlane(AY, 0);              // arka
-const wallF = staticPlane(AY, Math.PI);        // ön
-const ceil  = staticPlane(AX, Math.PI / 2);    // tavan
+staticPlane(AX, -Math.PI / 2);
+const wallL = staticPlane(AY, Math.PI / 2);
+const wallR = staticPlane(AY, -Math.PI / 2);
+const wallB = staticPlane(AY, 0);
+const wallF = staticPlane(AY, Math.PI);
+const ceil  = staticPlane(AX, Math.PI / 2);
 const bounds = { x: 3, y: 3, zf: 2.2, zb: -2.6 };
 
-// Ekran = sınır. Ekran boyutuna göre duvarları ve kamerayı ayarla
 function layout() {
   const aspect = innerWidth / innerHeight;
   camera.aspect = aspect;
@@ -230,18 +247,16 @@ addEventListener('resize', layout);
 // =====================================================================
 //  KUTU ÖLÇÜLERİ
 // =====================================================================
-const W = 1.6, D = 1.6, H = 1.0, T = 0.04;                    // kutu
-const LW = W + 0.1, LD = D + 0.1, SH = 0.3, LT = 0.045, ST = 0.03; // kapak
-const RW = 0.16;                                                // kurdele
+const W = 1.6, D = 1.6, H = 1.0, T = 0.04;
+const LW = W + 0.1, LD = D + 0.1, SH = 0.3, LT = 0.045, ST = 0.03;
+const RW = 0.16;
 
-// Yüz sırası: +x, -x, +y, -y, +z, -z
 function faceMats(inner, edge) {
   const m = Array(6).fill(paperMat);
   m[inner] = liningMat;
   if (edge !== undefined) m[edge] = edgeMat;
   return m;
 }
-// Hem görsel parça hem fizik şekli ekler
 function part(group, body, hx, hy, hz, x, y, z, mats) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2), mats);
   mesh.position.set(x, y, z);
@@ -257,7 +272,7 @@ function deco(group, w, h, d, x, y, z) {
 }
 
 // =====================================================================
-//  KUTU (içi gerçekten boş: taban + 4 duvar)
+//  KUTU (taban + 4 duvar — gerçekten içi boş)
 // =====================================================================
 const boxGroup = new THREE.Group();
 scene.add(boxGroup);
@@ -277,13 +292,12 @@ deco(boxGroup, RW, H, 0.006, 0, 0, -D / 2 - 0.004);
 deco(boxGroup, 0.006, H, RW, -W / 2 - 0.004, 0, 0);
 deco(boxGroup, 0.006, H, RW,  W / 2 + 0.004, 0, 0);
 
-// Kutu içi sıcak ışık (açılınca yanar)
 const innerLight = new THREE.PointLight(0xffe2b8, 0, 1.5, 2);
 innerLight.position.set(0, 0.1, 0);
 boxGroup.add(innerLight);
 
 // =====================================================================
-//  KAPAK (üst plaka + 4 etek — kutuya gerçekten oturur)
+//  KAPAK (üst plaka + 4 etek)
 // =====================================================================
 const lidGroup = new THREE.Group();
 scene.add(lidGroup);
@@ -307,7 +321,7 @@ deco(lidGroup, 0.006, SH, RW, -LW / 2 - 0.003, 0, 0);
 deco(lidGroup, 0.006, SH, RW,  LW / 2 + 0.003, 0, 0);
 
 // =====================================================================
-//  3D FİYONK (kavisli yassı kurdele şeritleri)
+//  3D FİYONK
 // =====================================================================
 function ribbonGeo(pts, width) {
   const s = new THREE.Shape(), w = width / 2, t = 0.006;
@@ -354,7 +368,7 @@ bow.position.y = TOP + 0.007;
 lidGroup.add(bow);
 
 // =====================================================================
-//  HAVADA SÜZÜLEN TOZ (spot ışığında atmosfer)
+//  HAVADA SÜZÜLEN TOZ
 // =====================================================================
 const DUST = 220;
 const dustPos = new Float32Array(DUST * 3);
@@ -373,7 +387,7 @@ scene.add(new THREE.Points(dustGeo, new THREE.PointsMaterial({
 })));
 
 // =====================================================================
-//  PARÇACIK SİSTEMİ (havai fişek kıvılcımları)
+//  PARÇACIK SİSTEMİ (havai fişek)
 // =====================================================================
 class Sparks {
   constructor(max, size) {
@@ -481,21 +495,30 @@ function updateRockets(dt) {
 }
 
 // =====================================================================
-//  KUTU AÇILINCA: MENÜ HAVAİ FİŞEKLE ÇIKIP DİZİLİR
+//  DOM REFERANSLARI
 // =====================================================================
 const hintEl = document.getElementById('hint');
 const welcomeEl = document.getElementById('welcome');
 const menuEl = document.getElementById('menu');
-let opened = false;
+const menuItems = [...menuEl.querySelectorAll('a')];
 
+// =====================================================================
+//  KAPAK/KUTU YARDIMCILARI
+// =====================================================================
 function getOpening() {
   return boxGroup.localToWorld(new THREE.Vector3(0, H / 2 - 0.1, 0));
 }
-
 function lidOffBox() {
   const rel = lidBody.position.vsub(boxBody.position);
   const l = boxBody.quaternion.inverse().vmult(rel);
   return Math.abs(l.x) > W * 0.55 || Math.abs(l.z) > D * 0.55 || l.y > H / 2 + 0.55;
+}
+function isOutsideBox(pos) {
+  const rel = pos.vsub(boxBody.position);
+  const l = boxBody.quaternion.inverse().vmult(rel);
+  const m = 0.03;
+  return Math.abs(l.x) > W / 2 - m || Math.abs(l.z) > D / 2 - m ||
+         l.y < -H / 2 - m || l.y > H / 2 + m;
 }
 
 function flyMenuItem(el, pos) {
@@ -514,37 +537,129 @@ function flyMenuItem(el, pos) {
   el.classList.add('lit');
 }
 
-function revealMenu() {
+let opened = false;
+let escapedCount = 0;
+
+function onLidOpen() {
   opened = true;
-  hintEl.classList.add('hidden');
   welcomeEl.classList.add('show');
-  menuEl.classList.add('show');
+  hintEl.textContent = 'Kutuyu devirerek mumları dökün — her biri havai fişekle menüye uçacak 🎆';
 
-  // Kutudan yükselen altın parıltı
   const o = getOpening();
-  for (let i = 0; i < 140; i++) {
-    sparks.add(o.x + (Math.random() - 0.5) * W * 0.8, o.y, o.z + (Math.random() - 0.5) * D * 0.8,
-      (Math.random() - 0.5) * 0.3, 0.6 + Math.random() * 1.2, (Math.random() - 0.5) * 0.3,
-      WARM, 1.2 + Math.random(), 0.8, 0.2, true);
+  for (let i = 0; i < 90; i++) {
+    sparks.add(o.x + (Math.random() - 0.5) * W * 0.6, o.y, o.z + (Math.random() - 0.5) * D * 0.6,
+      (Math.random() - 0.5) * 0.25, 0.5 + Math.random() * 0.9, (Math.random() - 0.5) * 0.25,
+      WARM, 1.0 + Math.random() * 0.6, 0.9, 0.3, true);
   }
-
-  const items = [...menuEl.querySelectorAll('a')];
-  const n = items.length;
-  items.forEach((el, i) => {
-    setTimeout(() => {
-      const spreadX = Math.min(bounds.x * 0.75, 2.4);
-      const to = new THREE.Vector3(
-        -spreadX + 2 * spreadX * (i / (n - 1)),
-        bounds.y - 0.5 - (i % 2) * 0.25,
-        -0.6
-      );
-      launchRocket(getOpening(), to, palettes[i % palettes.length], p => flyMenuItem(el, p));
-    }, 700 + i * 750);
-  });
 }
 
 // =====================================================================
-//  ETKİLEŞİM: tut, kaldır, fırlat, döndür
+//  TORPİL / MUM SİSTEMİ
+// =====================================================================
+class Candle {
+  constructor(index, startPos) {
+    this.index = index;
+    this.state = 'inside';   // inside -> falling -> burning -> done
+    this.settleTimer = 0;
+    this.burnTimer = 0;
+    this.burnDuration = 1.1 + Math.random() * 0.6;
+
+    const group = new THREE.Group();
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.22, 16), candleMat);
+    stick.castShadow = stick.receiveShadow = true;
+    group.add(stick);
+    const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, 0.07, 8), fuseMat);
+    fuse.position.y = 0.145;
+    fuse.castShadow = true;
+    group.add(fuse);
+    this.mesh = group;
+    scene.add(group);
+
+    this.cbody = new CANNON.Body({ mass: 0.12, linearDamping: 0.4, angularDamping: 0.6 });
+    this.cbody.addShape(new CANNON.Box(new CANNON.Vec3(0.055, 0.11, 0.055)));
+    this.cbody.position.copy(startPos);
+    this.cbody.angularFactor = new CANNON.Vec3(0, 1, 0); // sadece dikey eksende döner, hep ayakta kalır
+    world.addBody(this.cbody);
+
+    this.light = new THREE.PointLight(0xffb35c, 0, 1.6, 2);
+    scene.add(this.light);
+  }
+
+  sync() {
+    this.mesh.position.copy(this.cbody.position);
+    this.mesh.quaternion.copy(this.cbody.quaternion);
+  }
+
+  topWorldPos() {
+    return new THREE.Vector3(this.mesh.position.x, this.mesh.position.y + 0.19, this.mesh.position.z);
+  }
+
+  update(dt) {
+    if (this.state === 'done') return;
+    this.sync();
+
+    if (this.state === 'inside' || this.state === 'falling') {
+      if (isOutsideBox(this.cbody.position)) {
+        this.state = 'falling';
+        const v = this.cbody.velocity.length();
+        const av = this.cbody.angularVelocity.length();
+        if (v < 0.15 && av < 0.4) {
+          this.settleTimer += dt;
+          if (this.settleTimer > 0.35) {
+            this.state = 'burning';
+            this.burnTimer = 0;
+            escapedCount++;
+          }
+        } else {
+          this.settleTimer = 0;
+        }
+      }
+    } else if (this.state === 'burning') {
+      this.burnTimer += dt;
+      const top = this.topWorldPos();
+      this.light.position.copy(top);
+      this.light.intensity = 1.1 + Math.sin(this.burnTimer * 40) * 0.25 + Math.random() * 0.15;
+      for (let k = 0; k < 2; k++) {
+        sparks.add(top.x + (Math.random() - 0.5) * 0.015, top.y, top.z + (Math.random() - 0.5) * 0.015,
+          (Math.random() - 0.5) * 0.15, 0.5 + Math.random() * 0.4, (Math.random() - 0.5) * 0.15,
+          WARM, 0.35 + Math.random() * 0.2, 2.2, 0.3, true);
+      }
+      if (this.burnTimer >= this.burnDuration) this.launch();
+    }
+  }
+
+  launch() {
+    this.state = 'done';
+    this.light.intensity = 0;
+    const from = this.topWorldPos();
+    world.removeBody(this.cbody);
+    scene.remove(this.mesh);
+
+    if (!menuEl.classList.contains('show')) menuEl.classList.add('show');
+
+    const el = menuItems[this.index];
+    const n = menuItems.length;
+    const spreadX = Math.min(bounds.x * 0.8, 2.6);
+    const to = new THREE.Vector3(
+      n > 1 ? -spreadX + 2 * spreadX * (this.index / (n - 1)) : 0,
+      bounds.y - 0.65,
+      -0.4
+    );
+    launchRocket(from, to, palettes[this.index % palettes.length], p => flyMenuItem(el, p));
+
+    if (candles.every(c => c.state === 'done')) hintEl.classList.add('hidden');
+  }
+}
+
+const candles = menuItems.map((el, i) => {
+  const ang = (i / menuItems.length) * Math.PI * 2 + 0.4;
+  const r = 0.32;
+  const startPos = new CANNON.Vec3(Math.cos(ang) * r, 0.22, Math.sin(ang) * r);
+  return new Candle(i, startPos);
+});
+
+// =====================================================================
+//  ETKİLEŞİM
 // =====================================================================
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -625,7 +740,6 @@ function release() {
 canvas.addEventListener('pointerup', release);
 canvas.addEventListener('pointercancel', release);
 
-// Tutarken fare tekerleği = nesneyi kendi ekseninde döndür
 canvas.addEventListener('wheel', e => {
   if (!grabbed) return;
   e.preventDefault();
@@ -647,6 +761,7 @@ function rescue(body, y) {
   }
 }
 
+let nextNudge = 0;
 const clock = new THREE.Clock();
 function tick() {
   const dt = Math.min(clock.getDelta(), 1 / 30);
@@ -657,8 +772,16 @@ function tick() {
   sync(boxGroup, boxBody);
   sync(lidGroup, lidBody);
 
-  if (!opened && lidOffBox()) revealMenu();
+  if (!opened && lidOffBox()) onLidOpen();
   if (opened) innerLight.intensity += (1.6 - innerLight.intensity) * dt * 2;
+
+  candles.forEach(c => c.update(dt));
+
+  // Kullanıcı kutuyu hiç devirmezse hafif bir dürtme (isteğe bağlı, silinebilir)
+  if (opened && escapedCount < candles.length && !grabbed && t > nextNudge) {
+    boxBody.angularVelocity.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 1.6);
+    nextNudge = t + 4;
+  }
 
   updateRockets(dt);
   sparks.update(dt);
@@ -670,7 +793,6 @@ function tick() {
   }
   dustGeo.attributes.position.needsUpdate = true;
 
-  // Hafif kamera derinlik hissi (sürükleme yokken)
   if (!constraint) {
     camera.position.x += (camBase.x + ndc.x * 0.35 - camera.position.x) * dt * 2;
     camera.position.y += (camBase.y + ndc.y * 0.15 - camera.position.y) * dt * 2;
