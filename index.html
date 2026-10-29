@@ -3,272 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Süslü Hediyelikler — El Emeği Lüks Hediyelikler</title>
-<meta name="description" content="El emeğiyle hazırlanmış, kişiye özel butik hediyelik eşyalar.">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-
+<title>Süslü Hediyelikler — Hediyeni Aç</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
 </head>
 <body>
 
-<!-- Noise overlay -->
-<div class="noise"></div>
+<div id="scene"></div>
 
-<!-- Custom cursor -->
-<div class="cursor" id="cursor"></div>
-<div class="cursor-ring" id="cursorRing"></div>
+<div class="top-logo">SÜSLÜ<span>.</span></div>
 
-<!-- Preloader -->
-<div class="preloader" id="preloader">
-  <div class="preloader-text">SÜSLÜ HEDİYELİKLER</div>
+<div class="welcome" id="welcome">
+  <p class="welcome-small">El emeği • Göz nuru</p>
+  <h1>Süslü Hediyelikler'e <em>Hoş Geldiniz</em></h1>
 </div>
 
-<!-- ===== HEADER ===== -->
-<header id="header">
-  <div class="nav-inner">
-    <a href="#home" class="logo">SÜSLÜ<span>.</span></a>
+<p class="hint" id="hint">Kapağı tut ve kaldır &nbsp;•&nbsp; Kutuyu sürükle, fırlat &nbsp;•&nbsp; Tutarken tekerlekle döndür</p>
 
-    <ul class="nav-links" id="navLinks">
-      <li><a href="#home"><span>01</span> Ana Sayfa</a></li>
-      <li><a href="#about"><span>02</span> Hikayemiz</a></li>
-      <li><a href="#products"><span>03</span> Koleksiyon</a></li>
-      <li><a href="#process"><span>04</span> Süreç</a></li>
-      <li><a href="#contact"><span>05</span> İletişim</a></li>
-    </ul>
+<nav class="menu" id="menu">
+  <a href="#home">Ana Sayfa</a>
+  <a href="#about">Hikayemiz</a>
+  <a href="#products">Ürünler</a>
+  <a href="#contact">İletişim</a>
+</nav>
 
-    <a href="#contact" class="nav-cta">Sipariş Ver</a>
-
-    <div class="burger" id="burger">
-      <span></span><span></span>
-    </div>
-  </div>
-</header>
-
-<!-- ===== HERO ===== -->
-<section id="home" class="hero">
-  <div class="hero-grid">
-    <div class="hero-left">
-      <p class="hero-label" data-split>— El Emeği Koleksiyon —</p>
-      <h1 class="hero-title">
-        <span class="line" data-split>Hediye</span>
-        <span class="line italic" data-split>Vermenin</span>
-        <span class="line" data-split>Sanatı.</span>
-      </h1>
-    </div>
-    <div class="hero-right">
-      <p class="hero-desc">
-        Her parça elle dokunur, kalple tasarlanır. Süslü Hediyelikler,
-        sıradan hediyeleri unutulmaz anılara dönüştürür.
-      </p>
-      <a href="#products" class="btn-magnetic" data-magnetic>
-        <span>Koleksiyonu Gör</span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2"/></svg>
-      </a>
-    </div>
-  </div>
-
-  <div class="hero-visual">
-    <div class="orb orb-gold"></div>
-    <div class="orb orb-rose"></div>
-    <div class="ring-deco"></div>
-  </div>
-
-  <div class="hero-bottom">
-    <div class="scroll-hint">
-      <span>Keşfet</span>
-      <div class="scroll-line"><div class="scroll-line-fill"></div></div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== MARQUEE ===== -->
-<div class="marquee">
-  <div class="marquee-track">
-    <span>EL EMEĞİ</span><span class="sep">✦</span>
-    <span>ÖZEL TASARIM</span><span class="sep">✦</span>
-    <span>KİŞİYE ÖZEL</span><span class="sep">✦</span>
-    <span>SINIRLI SAYIDA</span><span class="sep">✦</span>
-    <span>EL EMEĞİ</span><span class="sep">✦</span>
-    <span>ÖZEL TASARIM</span><span class="sep">✦</span>
-    <span>KİŞİYE ÖZEL</span><span class="sep">✦</span>
-    <span>SINIRLI SAYIDA</span><span class="sep">✦</span>
-  </div>
-</div>
-
-<!-- ===== ABOUT ===== -->
-<section id="about" class="about">
-  <div class="section-head">
-    <span class="section-num">02</span>
-    <h2 class="section-title">Hikayemiz</h2>
-  </div>
-
-  <div class="about-grid">
-    <div class="about-text">
-      <p class="lead reveal-up">
-        Süslü Hediyelikler, <em>küçük bir tutkunun</em> büyük bir emeğe
-        dönüşmesiyle doğdu.
-      </p>
-      <p class="reveal-up">
-        Her ürün, saatlerce süren özenli bir süreçten geçer. Malzeme
-        seçiminden son dokunuşa kadar her adımda kaliteyi ve detayı
-        önemsiyoruz. Amacımız; verdiğiniz hediyenin alıcısında kalıcı bir
-        iz bırakmasını sağlamak.
-      </p>
-      <div class="about-numbers">
-        <div class="num-item reveal-up">
-          <h3 data-count="100">0</h3>
-          <p>El Emeği</p>
-        </div>
-        <div class="num-item reveal-up">
-          <h3 data-count="50">0</h3>
-          <p>+ Tasarım</p>
-        </div>
-        <div class="num-item reveal-up">
-          <h3 data-count="7">0</h3>
-          <p>/24 Destek</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="about-visual reveal-up">
-      <div class="about-frame">
-        <div class="frame-content">
-          <span>🎁</span>
-        </div>
-        <div class="frame-label">El Emeği<br>Her Detayda</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== PRODUCTS - Horizontal scroll ===== -->
-<section id="products" class="products">
-  <div class="section-head">
-    <span class="section-num">03</span>
-    <h2 class="section-title">Koleksiyon</h2>
-  </div>
-  <p class="section-note reveal-up">Kaydırarak keşfedin →</p>
-
-  <div class="products-scroll" id="productsScroll">
-    <div class="product-item reveal-up">
-      <div class="product-visual ph-1"><span>🎁</span></div>
-      <div class="product-info">
-        <span class="product-tag">Koleksiyon 01</span>
-        <h3>Hediye Kutuları</h3>
-      </div>
-    </div>
-    <div class="product-item reveal-up">
-      <div class="product-visual ph-2"><span>💍</span></div>
-      <div class="product-info">
-        <span class="product-tag">Koleksiyon 02</span>
-        <h3>Takı & Aksesuar</h3>
-      </div>
-    </div>
-    <div class="product-item reveal-up">
-      <div class="product-visual ph-3"><span>🏠</span></div>
-      <div class="product-info">
-        <span class="product-tag">Koleksiyon 03</span>
-        <h3>Ev Dekorasyonu</h3>
-      </div>
-    </div>
-    <div class="product-item reveal-up">
-      <div class="product-visual ph-4"><span>🎀</span></div>
-      <div class="product-info">
-        <span class="product-tag">Koleksiyon 04</span>
-        <h3>Kişiye Özel</h3>
-      </div>
-    </div>
-    <div class="product-item reveal-up">
-      <div class="product-visual ph-5"><span>🕯️</span></div>
-      <div class="product-info">
-        <span class="product-tag">Koleksiyon 05</span>
-        <h3>Mum & Aromaterapi</h3>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== PROCESS ===== -->
-<section id="process" class="process">
-  <div class="section-head">
-    <span class="section-num">04</span>
-    <h2 class="section-title">Nasıl Çalışıyoruz</h2>
-  </div>
-
-  <div class="process-list">
-    <div class="process-item reveal-up">
-      <span class="process-index">01</span>
-      <div class="process-body">
-        <h3>İletişime Geçin</h3>
-        <p>WhatsApp veya e-posta ile hayalinizdeki hediyeyi anlatın.</p>
-      </div>
-      <span class="process-icon">💬</span>
-    </div>
-    <div class="process-item reveal-up">
-      <span class="process-index">02</span>
-      <div class="process-body">
-        <h3>Birlikte Tasarlayalım</h3>
-        <p>İsteklerinize göre özel tasarım önerileri sunarız.</p>
-      </div>
-      <span class="process-icon">✏️</span>
-    </div>
-    <div class="process-item reveal-up">
-      <span class="process-index">03</span>
-      <div class="process-body">
-        <h3>El Emeği Üretim</h3>
-        <p>Onayınızla birlikte özenle üretim sürecine başlarız.</p>
-      </div>
-      <span class="process-icon">🧵</span>
-    </div>
-    <div class="process-item reveal-up">
-      <span class="process-index">04</span>
-      <div class="process-body">
-        <h3>Özenli Teslimat</h3>
-        <p>Şık paketleme ile hediyeniz güvenle elinize ulaşır.</p>
-      </div>
-      <span class="process-icon">📦</span>
-    </div>
-  </div>
-</section>
-
-<!-- ===== CONTACT ===== -->
-<section id="contact" class="contact">
-  <div class="contact-inner">
-    <span class="section-num light">05</span>
-    <h2 class="contact-title reveal-up">
-      Hayalinizdeki Hediyeyi<br><em>Birlikte Yaratalım</em>
-    </h2>
-    <p class="reveal-up">Size özel, tek ve unutulmaz bir hediye için bize ulaşın.</p>
-
-    <div class="contact-links reveal-up">
-      <a href="https://wa.me/90XXXXXXXXXX" target="_blank" class="contact-link">
-        <span>WhatsApp</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2"/></svg>
-      </a>
-      <a href="mailto:info@susluhediyeliklerim.com" class="contact-link">
-        <span>E-posta</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2"/></svg>
-      </a>
-      <a href="#" class="contact-link">
-        <span>Instagram</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2"/></svg>
-      </a>
-    </div>
-  </div>
-</section>
-
-<!-- ===== FOOTER ===== -->
-<footer class="footer">
-  <div class="footer-inner">
-    <div class="footer-logo">SÜSLÜ<span>.</span></div>
-    <p>El emeği, göz nuru hediyelikler</p>
-    <p class="footer-copy">© 2025 susluhediyeliklerim.com</p>
-  </div>
-</footer>
-
-<a href="https://wa.me/90XXXXXXXXXX" target="_blank" class="float-whatsapp">💬</a>
+<div class="loading" id="loading"><span>SÜSLÜ HEDİYELİKLER</span></div>
 
 <script src="script.js"></script>
 </body>
