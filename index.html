@@ -3,40 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Sitem</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            text-align: center;
-            padding-top: 100px;
-            margin: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #ffffff;
-            padding: 40px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #2c3e50;
-        }
-        p {
-            color: #7f8c8d;
-            line-height: 1.6;
-        }
-    </style>
+    <title>Süslü Hediyeliklerim | Özel Anlarınıza Değer Katın</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body class="bg-gray-50 text-gray-800 font-sans">
 
-    <div class="container">
-        <h1>Merhaba Dünya! 🚀</h1>
-        <p>Alan adım GitHub Pages altyapısıyla başarıyla yayına alındı.</p>
-        <p><b>Sıradaki aşamaya geçmeye hazırım!</b></p>
+    <!-- Üst Duyuru Barı -->
+    <div class="bg-pink-600 text-white text-xs sm:text-sm text-center py-2 px-4">
+        🎉 Tüm siparişlerde kargo fırsatı! Sevdiklerinizi mutlu edin. 🎁
     </div>
+
+    <!-- Navigasyon -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold text-pink-600 tracking-wide">
+                    <i class="fa-solid fa-gift mr-2"></i>Süslü Hediyeliklerim
+                </span>
+            </div>
+            <div class="hidden md:flex space-x-8 font-medium">
+                <a href="#" class="text-pink-600 hover:text-pink-700">Ana Sayfa</a>
+                <a href="#urunler" class="text-gray-600 hover:text-pink-600">Ürünler</a>
+                <a href="#hakkimizda" class="text-gray-600 hover:text-pink-600">Hakkımızda</a>
+                <a href="#iletisim" class="text-gray-600 hover:text-pink-600">İletişim</a>
+            </div>
+            <div>
+                <a href="#iletisim" class="bg-pink-600 hover:bg-pink-700 text-white px-5 py-2.5 rounded-full text-sm font-medium transition shadow-md">
+                    Sipariş Ver
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Bölümü -->
+    <header class="bg-gradient-to-r from-pink-50 via-purple-50 to-pink-100 py-20 px-4">
+        <div class="max-w-7xl mx-auto text-center">
+            <span class="bg-pink-100 text-pink-700 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">El Yapımı ve Özel Tasarım</span>
+            <h1 class="text-4xl sm:text-6xl font-extrabold text-gray-900 mt-4 mb-6 leading-tight">
+                Sevdiklerinize En Anlamlı <span class="text-pink-600">Hediyeler</span>
+            </h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
+                En özel günlerinizde unutulmaz hatıralar bırakmak için özenle tasarlanan kişiye özel hediyelik eşyalarımızı keşfedin.
+            </p>
+            <div class="flex justify-center gap-4">
+                <a href="#urunler" class="bg-pink-600 hover:bg-pink-700 text-white font-medium px-8 py-3 rounded-xl shadow-lg transition">
+                    Ürünleri İncele
+                </a>
+                <a href="#iletisim" class="bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 font-medium px-8 py-3 rounded-xl transition">
+                    İletişime Geç
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Ürünler / Vitrin Bölümü -->
+    <section id="urunler" class="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-900">Popüler Hediyelikler</h2>
+            <p class="text-gray-600 mt-2">En çok tercih edilen el emeği ürünlerimizden bazıları</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Ürün 1 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                <div class="h-64 bg-pink-100 flex items-center justify-center text-pink-400 text-5xl">
+                    <i class="fa-solid fa-box-open"></i>
+                </div>
+                <div class="p-6">
+                    <span class="text-xs text-pink-600 font-semibold uppercase">Özel Kutu</span>
+                    <h3 class="text-xl font-bold text-gray-900 mt-1 mb-2">Kişiselleştirilmiş Hediye Kutusu</h3>
+                    <p class="text-gray-600 text-sm mb-4">İsme özel detaylarla süslenmiş, içi tamamen sizin isteğinize göre doldurulan konsept kutu.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-lg font-bold text-gray-900">₺350,00</span>
+                        <a href="#iletisim" class="text-pink-600 hover:text-pink-700 font-medium text-sm flex items-center gap-1">Bilgi Al <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ürün 2 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                <div class="h-64 bg-purple-100 flex items-center justify-center text-purple-400 text-5xl">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="p-6">
+                    <span class="text-xs text-purple-600 font-semibold uppercase">Dekoratif</span>
+                    <h3 class="text-xl font-bold text-gray-900 mt-1 mb-2">El Yapımı Dekoratif Objeler</h3>
+                    <p class="text-gray-600 text-sm mb-4">Evinizin havasını değiştirecek, zarif ve estetik el yapımı süs ve tasarım ürünleri.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-lg font-bold text-gray-900">₺250,00</span>
+                        <a href="#iletisim" class="text-pink-600 hover:text-pink-700 font-medium text-sm flex items-center gap-1">Bilgi Al <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ürün 3 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                <div class="h-64 bg-rose-100 flex items-center justify-center text-rose-400 text-5xl">
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+                <div class="p-6">
+                    <span class="text-xs text-rose-600 font-semibold uppercase">Özel Gün</span>
+                    <h3 class="text-xl font-bold text-gray-900 mt-1 mb-2">Anı ve Konsept Setleri</h3>
+                    <p class="text-gray-600 text-sm mb-4">Doğum günü, yıl dönümü ve özel kutlamalarınız için unutulmaz anı setleri.</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-lg font-bold text-gray-900">₺450,00</span>
+                        <a href="#iletisim" class="text-pink-600 hover:text-pink-700 font-medium text-sm flex items-center gap-1">Bilgi Al <i class="fa-solid fa-arrow-right"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- İletişim / Alt Bilgi -->
+    <footer id="iletisim" class="bg-gray-900 text-white py-12 px-4 mt-20">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+                <h2 class="text-2xl font-bold mb-3">Süslü Hediyeliklerim</h2>
+                <p class="text-gray-400 text-sm max-w-md">
+                    Sevdiklerinizi mutlu etmenin en zarif yolu. Özel siparişleriniz ve sorularınız için bizimle iletişime geçebilirsiniz.
+                </p>
+            </div>
+            <div class="flex flex-col md:items-end space-y-3">
+                <p class="text-gray-300 text-sm"><i class="fa-solid fa-envelope mr-2 text-pink-500"></i> bilgi@susluhediyeliklerim.com</p>
+                <div class="flex space-x-4 text-xl mt-2">
+                    <a href="#" class="text-gray-400 hover:text-white transition"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition"><i class="fa-brands fa-whatsapp"></i></a>
+                </div>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto border-t border-gray-800 mt-8 pt-8 text-center text-xs text-gray-500">
+            &copy; 2026 Süslü Hediyeliklerim. Tüm hakları saklıdır.
+        </div>
+    </footer>
 
 </body>
 </html>
