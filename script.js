@@ -1,5 +1,5 @@
 // =====================================================================
-//  HATA YAKALAYICI (sorun olursa ekranda gösterir)
+//  HATA YAKALAYICI
 // =====================================================================
 window.addEventListener('error', e => {
   const box = document.getElementById('errbox');
@@ -38,7 +38,7 @@ const camDir = new THREE.Vector3(0, 2.4, 7).normalize();
 const camBase = new THREE.Vector3();
 
 // =====================================================================
-//  STÜDYO ORTAMI (softbox yansımaları)
+//  STÜDYO ORTAMI
 // =====================================================================
 const pmrem = new THREE.PMREMGenerator(renderer);
 function buildEnvironment() {
@@ -65,9 +65,9 @@ scene.environment = buildEnvironment();
 // =====================================================================
 //  IŞIKLAR
 // =====================================================================
-scene.add(new THREE.HemisphereLight(0xffe9f2, 0x1a0f14, 0.25));
+scene.add(new THREE.HemisphereLight(0xffe9f2, 0x1a0f14, 0.3));
 
-const spot = new THREE.SpotLight(0xfff1e0, 3.2, 25, Math.PI / 7, 0.65, 1.2);
+const spot = new THREE.SpotLight(0xfff1e0, 3.2, 25, Math.PI / 7, 0.8, 1.2);
 spot.position.set(2.5, 8, 4.5);
 spot.target.position.set(0, 0.5, 0);
 spot.castShadow = true;
@@ -105,6 +105,38 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // =====================================================================
+//  YUMUŞAK KENARLI (ROUNDED) KUTU GEOMETRİSİ
+// =====================================================================
+function roundedBoxGeometry(w, h, d, r, seg) {
+  seg = seg || 4;
+  r = Math.min(r, w / 2, h / 2, d / 2);
+  const geo = new THREE.BoxGeometry(w, h, d, seg, seg, seg);
+  const pos = geo.attributes.position;
+  const hw = Math.max(w / 2 - r, 0.0001);
+  const hh = Math.max(h / 2 - r, 0.0001);
+  const hd = Math.max(d / 2 - r, 0.0001);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const cx = THREE.MathUtils.clamp(v.x, -hw, hw);
+    const cy = THREE.MathUtils.clamp(v.y, -hh, hh);
+    const cz = THREE.MathUtils.clamp(v.z, -hd, hd);
+    const dx = v.x - cx, dy = v.y - cy, dz = v.z - cz;
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (len > 1e-6) {
+      const s = r / len;
+      v.set(cx + dx * s, cy + dy * s, cz + dz * s);
+    } else {
+      v.set(cx, cy, cz);
+    }
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// =====================================================================
 //  DOKULAR
 // =====================================================================
 function canvasTex(size, draw, srgb = true, repeat = 1) {
@@ -117,6 +149,16 @@ function canvasTex(size, draw, srgb = true, repeat = 1) {
   if (srgb) t.encoding = THREE.sRGBEncoding;
   t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 const paperTex = canvasTex(512, (g, s) => {
@@ -175,12 +217,47 @@ const candleTex = canvasTex(128, (g, s) => {
   for (let y = 0; y < s; y += 22) g.fillRect(0, y, s, 10);
 }, true, 1);
 
+const tagTex = canvasTex(512, (g, s) => {
+  roundRectPath(g, 14, 14, s - 28, s - 28, 46);
+  g.fillStyle = '#f6eee1';
+  g.fill();
+  g.lineWidth = 7;
+  g.strokeStyle = '#d9b46a';
+  roundRectPath(g, 14, 14, s - 28, s - 28, 46);
+  g.stroke();
+  g.fillStyle = '#8a1c43';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = 'italic 600 56px Georgia, serif';
+  g.fillText('Süslü', s / 2, s / 2 - 40);
+  g.fillText('Hediyeliklerim', s / 2, s / 2 + 36);
+}, true, 1);
+
+const shadowBlobTex = canvasTex(256, (g, s) => {
+  const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  gr.addColorStop(0, 'rgba(0,0,0,0.55)');
+  gr.addColorStop(0.55, 'rgba(0,0,0,0.22)');
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, s, s);
+}, false);
+
+const furTex = canvasTex(128, (g, s) => {
+  g.fillStyle = '#ffd7e0';
+  g.fillRect(0, 0, s, s);
+  for (let i = 0; i < 900; i++) {
+    g.fillStyle = `rgba(255,255,255,${Math.random() * 0.18})`;
+    const x = Math.random() * s, y = Math.random() * s;
+    g.beginPath(); g.arc(x, y, Math.random() * 1.6, 0, Math.PI * 2); g.fill();
+  }
+}, true, 1);
+
 // =====================================================================
 //  MALZEMELER
 // =====================================================================
 const paperMat = new THREE.MeshPhysicalMaterial({
   map: paperTex, bumpMap: grainTex, bumpScale: 0.003,
-  roughness: 0.62, metalness: 0, clearcoat: 0.15, clearcoatRoughness: 0.5
+  roughness: 0.58, metalness: 0, clearcoat: 0.25, clearcoatRoughness: 0.45
 });
 const liningMat = new THREE.MeshStandardMaterial({
   color: 0xf3e9d8, roughness: 0.95, bumpMap: grainTex, bumpScale: 0.002
@@ -193,6 +270,14 @@ const ribbonMat = new THREE.MeshPhysicalMaterial({
 });
 const candleMat = new THREE.MeshStandardMaterial({ map: candleTex, roughness: 0.5, metalness: 0.1 });
 const fuseMat = new THREE.MeshStandardMaterial({ color: 0x4a3a2a, roughness: 0.9 });
+const tagMat = new THREE.MeshStandardMaterial({ map: tagTex, roughness: 0.6, metalness: 0 });
+const tagEdgeMat = new THREE.MeshStandardMaterial({ color: 0xd9b46a, roughness: 0.5, metalness: 0.3 });
+
+const furMat = new THREE.MeshStandardMaterial({ map: furTex, roughness: 0.92, metalness: 0 });
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0x2a1a2a, roughness: 0.3, metalness: 0.1 });
+const cheekMat = new THREE.MeshStandardMaterial({ color: 0xff95a8, roughness: 1, transparent: true, opacity: 0.55 });
+const mouthMat = new THREE.MeshStandardMaterial({ color: 0x5a2a3a, roughness: 0.6 });
+const stringMat = new THREE.MeshStandardMaterial({ color: 0xcfa864, roughness: 0.7 });
 
 // =====================================================================
 //  FİZİK DÜNYASI (Cannon.js)
@@ -258,7 +343,9 @@ function faceMats(inner, edge) {
   return m;
 }
 function part(group, body, hx, hy, hz, x, y, z, mats) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2), mats);
+  const r = Math.min(hx, hy, hz) * 0.55;
+  const geo = roundedBoxGeometry(hx * 2, hy * 2, hz * 2, Math.max(r, 0.006), 4);
+  const mesh = new THREE.Mesh(geo, mats);
   mesh.position.set(x, y, z);
   mesh.castShadow = mesh.receiveShadow = true;
   group.add(mesh);
@@ -270,9 +357,19 @@ function deco(group, w, h, d, x, y, z) {
   m.castShadow = m.receiveShadow = true;
   group.add(m);
 }
+function makeContactShadow(size) {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(size, size),
+    new THREE.MeshBasicMaterial({ map: shadowBlobTex, transparent: true, depthWrite: false, opacity: 0.6 })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.position.y = 0.003;
+  scene.add(m);
+  return m;
+}
 
 // =====================================================================
-//  KUTU (taban + 4 duvar — gerçekten içi boş)
+//  KUTU
 // =====================================================================
 const boxGroup = new THREE.Group();
 scene.add(boxGroup);
@@ -296,8 +393,10 @@ const innerLight = new THREE.PointLight(0xffe2b8, 0, 1.5, 2);
 innerLight.position.set(0, 0.1, 0);
 boxGroup.add(innerLight);
 
+const boxShadowBlob = makeContactShadow(2.3);
+
 // =====================================================================
-//  KAPAK (üst plaka + 4 etek)
+//  KAPAK
 // =====================================================================
 const lidGroup = new THREE.Group();
 scene.add(lidGroup);
@@ -319,6 +418,16 @@ deco(lidGroup, RW, SH, 0.006, 0, 0,  LD / 2 + 0.003);
 deco(lidGroup, RW, SH, 0.006, 0, 0, -LD / 2 - 0.003);
 deco(lidGroup, 0.006, SH, RW, -LW / 2 - 0.003, 0, 0);
 deco(lidGroup, 0.006, SH, RW,  LW / 2 + 0.003, 0, 0);
+
+const tagGeo = new THREE.BoxGeometry(0.52, 0.02, 0.34);
+const tagMats = [tagEdgeMat, tagEdgeMat, tagMat, tagEdgeMat, tagEdgeMat, tagEdgeMat];
+const tag = new THREE.Mesh(tagGeo, tagMats);
+tag.position.set(0.5, TOP + 0.013, -0.46);
+tag.rotation.y = -0.12;
+tag.castShadow = tag.receiveShadow = true;
+lidGroup.add(tag);
+
+const lidShadowBlob = makeContactShadow(1.7);
 
 // =====================================================================
 //  3D FİYONK
@@ -358,11 +467,11 @@ const tailGeo = ribbonGeo([
   bow.add(m);
 });
 
-const knot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 16), ribbonMat);
-knot.scale.set(1.1, 0.75, 1.3);
-knot.position.y = 0.04;
-knot.castShadow = true;
-bow.add(knot);
+const knot0 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 24, 16), ribbonMat);
+knot0.scale.set(1.1, 0.75, 1.3);
+knot0.position.y = 0.04;
+knot0.castShadow = true;
+bow.add(knot0);
 
 bow.position.y = TOP + 0.007;
 lidGroup.add(bow);
@@ -497,10 +606,9 @@ function updateRockets(dt) {
 // =====================================================================
 //  DOM REFERANSLARI
 // =====================================================================
-const hintEl = document.getElementById('hint');
-const welcomeEl = document.getElementById('welcome');
 const menuEl = document.getElementById('menu');
-const menuItems = [...menuEl.querySelectorAll('a')];
+const menuItems = [...menuEl.querySelectorAll('.balloon-item')];
+const priceTagEl = document.getElementById('priceTag');
 
 // =====================================================================
 //  KAPAK/KUTU YARDIMCILARI
@@ -528,13 +636,18 @@ function flyMenuItem(el, pos) {
   const r = el.getBoundingClientRect();
   const dx = sx - (r.left + r.width / 2);
   const dy = sy - (r.top + r.height / 2);
-  el.animate([
+  const anim = el.animate([
     { transform: `translate(${dx}px,${dy}px) scale(.2)`, opacity: 0, filter: 'blur(8px)' },
-    { transform: `translate(${dx}px,${dy}px) scale(1.12)`, opacity: 1, filter: 'blur(0px)', offset: 0.22 },
-    { transform: `translate(${dx}px,${dy}px) scale(1)`, opacity: 1, filter: 'blur(0px)', offset: 0.4 },
+    { transform: `translate(${dx}px,${dy}px) scale(1.15)`, opacity: 1, filter: 'blur(0px)', offset: 0.22 },
+    { transform: `translate(${dx}px,${dy}px) scale(1)`, opacity: 1, filter: 'blur(0px)', offset: 0.42 },
     { transform: 'translate(0px,0px) scale(1)', opacity: 1, filter: 'blur(0px)' }
   ], { duration: 1700, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+
   el.classList.add('lit');
+  anim.onfinish = () => {
+    anim.cancel();
+    el.classList.add('landed');
+  };
 }
 
 let opened = false;
@@ -542,9 +655,6 @@ let escapedCount = 0;
 
 function onLidOpen() {
   opened = true;
-  welcomeEl.classList.add('show');
-  hintEl.textContent = 'Kutuyu devirerek mumları dökün — her biri havai fişekle menüye uçacak 🎆';
-
   const o = getOpening();
   for (let i = 0; i < 90; i++) {
     sparks.add(o.x + (Math.random() - 0.5) * W * 0.6, o.y, o.z + (Math.random() - 0.5) * D * 0.6,
@@ -559,7 +669,7 @@ function onLidOpen() {
 class Candle {
   constructor(index, startPos) {
     this.index = index;
-    this.state = 'inside';   // inside -> falling -> burning -> done
+    this.state = 'inside';
     this.settleTimer = 0;
     this.burnTimer = 0;
     this.burnDuration = 1.1 + Math.random() * 0.6;
@@ -578,7 +688,7 @@ class Candle {
     this.cbody = new CANNON.Body({ mass: 0.12, linearDamping: 0.4, angularDamping: 0.6 });
     this.cbody.addShape(new CANNON.Box(new CANNON.Vec3(0.055, 0.11, 0.055)));
     this.cbody.position.copy(startPos);
-    this.cbody.angularFactor = new CANNON.Vec3(0, 1, 0); // sadece dikey eksende döner, hep ayakta kalır
+    this.cbody.angularFactor = new CANNON.Vec3(0, 1, 0);
     world.addBody(this.cbody);
 
     this.light = new THREE.PointLight(0xffb35c, 0, 1.6, 2);
@@ -642,12 +752,10 @@ class Candle {
     const spreadX = Math.min(bounds.x * 0.8, 2.6);
     const to = new THREE.Vector3(
       n > 1 ? -spreadX + 2 * spreadX * (this.index / (n - 1)) : 0,
-      bounds.y - 0.65,
+      bounds.y - 0.65 + (this.index % 2 === 0 ? 0.05 : -0.08),
       -0.4
     );
     launchRocket(from, to, palettes[this.index % palettes.length], p => flyMenuItem(el, p));
-
-    if (candles.every(c => c.state === 'done')) hintEl.classList.add('hidden');
   }
 }
 
@@ -659,7 +767,214 @@ const candles = menuItems.map((el, i) => {
 });
 
 // =====================================================================
-//  ETKİLEŞİM
+//  3D ÜRÜN GÖSTERİSİ — Amigurumi bebek + balon (gerçek fizik, oynanabilir)
+// =====================================================================
+function buildAmigurumi() {
+  const g = new THREE.Group();
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 24), furMat);
+  body.scale.set(1, 1.15, 1);
+  body.castShadow = body.receiveShadow = true;
+  g.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 24), furMat);
+  head.position.y = 0.3;
+  head.castShadow = head.receiveShadow = true;
+  g.add(head);
+
+  [-1, 1].forEach(side => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.07, 20, 16), furMat);
+    ear.position.set(side * 0.1, 0.44, -0.02);
+    ear.scale.set(0.7, 1.3, 0.6);
+    ear.rotation.z = side * 0.35;
+    ear.castShadow = true;
+    g.add(ear);
+
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 10), eyeMat);
+    eye.position.set(side * 0.06, 0.31, 0.145);
+    g.add(eye);
+
+    const cheek = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), cheekMat);
+    cheek.position.set(side * 0.1, 0.27, 0.14);
+    cheek.lookAt(cheek.position.clone().add(new THREE.Vector3(0, 0, 1)));
+    g.add(cheek);
+
+    const arm = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), furMat);
+    arm.position.set(side * 0.22, 0.05, 0);
+    arm.scale.set(0.8, 1.3, 0.8);
+    arm.castShadow = true;
+    g.add(arm);
+
+    const leg = new THREE.Mesh(new THREE.SphereGeometry(0.075, 16, 12), furMat);
+    leg.position.set(side * 0.1, -0.26, 0.05);
+    leg.scale.set(0.9, 0.8, 1);
+    leg.castShadow = true;
+    g.add(leg);
+  });
+
+  const mouthCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.025, 0.25, 0.155),
+    new THREE.Vector3(0, 0.24, 0.16),
+    new THREE.Vector3(0.025, 0.25, 0.155)
+  ]);
+  const mouth = new THREE.Mesh(new THREE.TubeGeometry(mouthCurve, 12, 0.004, 6, false), mouthMat);
+  g.add(mouth);
+
+  const bellyTag = new THREE.Mesh(new THREE.CircleGeometry(0.035, 20), new THREE.MeshStandardMaterial({ color: 0xfff6df, roughness: 0.6 }));
+  bellyTag.position.set(0, 0, 0.215);
+  g.add(bellyTag);
+
+  return g;
+}
+
+function buildBalloon() {
+  const g = new THREE.Group();
+  const bMat = ribbonMat.clone();
+  bMat.color.set(0xe85a7a);
+  bMat.metalness = 0.1;
+  bMat.roughness = 0.15;
+  bMat.clearcoat = 0.6;
+
+  const balloon = new THREE.Mesh(new THREE.SphereGeometry(0.19, 28, 22), bMat);
+  balloon.scale.set(1, 1.15, 1);
+  balloon.castShadow = true;
+  g.add(balloon);
+
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.045, 12), bMat);
+  knot.position.y = -0.21;
+  knot.rotation.x = Math.PI;
+  g.add(knot);
+
+  return g;
+}
+
+function makeRod() {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 6), stringMat);
+  scene.add(m);
+  return m;
+}
+function placeRod(mesh, a, b) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = Math.max(dir.length(), 0.001);
+  mesh.position.copy(a).addScaledVector(dir, 0.5);
+  mesh.scale.set(1, len, 1);
+  const axis = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(axis, dir.clone().normalize());
+  mesh.quaternion.copy(q);
+}
+
+let productDemo = null;
+
+function spawnProduct() {
+  if (productDemo) { destroyProduct(); return; }
+
+  const dollGroup = buildAmigurumi();
+  const balloonGroup = buildBalloon();
+  scene.add(dollGroup, balloonGroup);
+
+  const startX = 0.85, startZ = 0.55;
+  const topY = bounds.y + 1.4;
+  const restY = camTarget.y + 0.3;
+  const ropeLen = 0.8;
+
+  const dollBody = new CANNON.Body({ mass: 0.5, linearDamping: 0.5, angularDamping: 0.7 });
+  dollBody.addShape(new CANNON.Sphere(0.22));
+  dollBody.position.set(startX, topY - ropeLen, startZ);
+  world.addBody(dollBody);
+
+  const balloonBody = new CANNON.Body({ mass: 0.05, linearDamping: 0.6, angularDamping: 0.8 });
+  balloonBody.addShape(new CANNON.Sphere(0.19));
+  balloonBody.position.set(startX, topY, startZ);
+  world.addBody(balloonBody);
+
+  const rope = new CANNON.DistanceConstraint(balloonBody, dollBody, ropeLen, 60);
+  world.addConstraint(rope);
+
+  const rod = makeRod();
+
+  dollGroup.userData.body = dollBody;
+  balloonGroup.userData.body = balloonBody;
+  grabbables.push(dollGroup, balloonGroup);
+
+  productDemo = {
+    dollGroup, balloonGroup, dollBody, balloonBody, rope, rod,
+    entering: true, t: 0, duration: 1.5,
+    from: new THREE.Vector3(startX, topY - ropeLen, startZ),
+    to: new THREE.Vector3(startX, restY, startZ),
+    settled: false
+  };
+}
+
+function destroyProduct() {
+  if (!productDemo) return;
+  const d = productDemo;
+  world.removeConstraint(d.rope);
+  world.removeBody(d.dollBody);
+  world.removeBody(d.balloonBody);
+  scene.remove(d.dollGroup, d.balloonGroup, d.rod);
+  const i1 = grabbables.indexOf(d.dollGroup); if (i1 >= 0) grabbables.splice(i1, 1);
+  const i2 = grabbables.indexOf(d.balloonGroup); if (i2 >= 0) grabbables.splice(i2, 1);
+  priceTagEl.classList.remove('show');
+  productDemo = null;
+}
+
+function updateProduct(dt) {
+  if (!productDemo) return;
+  const d = productDemo;
+
+  if (d.entering) {
+    d.t += dt;
+    const k = Math.min(d.t / d.duration, 1);
+    const ease = 1 - Math.pow(1 - k, 3);
+    const dollPos = d.from.clone().lerp(d.to, ease);
+    d.dollBody.position.set(dollPos.x, dollPos.y, dollPos.z);
+    d.dollBody.velocity.set(0, 0, 0);
+    d.balloonBody.position.set(dollPos.x, dollPos.y + 0.8, dollPos.z);
+    d.balloonBody.velocity.set(0, 0, 0);
+    if (k >= 1) d.entering = false;
+  } else {
+    const g = 9.82;
+    const lift = (d.balloonBody.mass + d.dollBody.mass * 0.92) * g;
+    d.balloonBody.applyForce(new CANNON.Vec3(0, lift, 0), d.balloonBody.position);
+
+    if (!d.settled && d.dollBody.velocity.length() < 0.25) d.settled = true;
+  }
+
+  d.dollGroup.position.copy(d.dollBody.position);
+  d.dollGroup.quaternion.copy(d.dollBody.quaternion);
+  d.balloonGroup.position.copy(d.balloonBody.position);
+  d.balloonGroup.quaternion.copy(d.balloonBody.quaternion);
+
+  const ballBottom = d.balloonGroup.position.clone();
+  ballBottom.y -= 0.19;
+  const dollTop = d.dollGroup.position.clone();
+  dollTop.y += 0.24;
+  placeRod(d.rod, dollTop, ballBottom);
+
+  if (d.settled) {
+    const p = d.dollGroup.position.clone();
+    p.x += 0.34; p.y += 0.05;
+    const proj = p.project(camera);
+    const sx = (proj.x + 1) / 2 * innerWidth;
+    const sy = (1 - proj.y) / 2 * innerHeight;
+    priceTagEl.style.left = sx + 'px';
+    priceTagEl.style.top = sy + 'px';
+    priceTagEl.classList.add('show');
+  } else {
+    priceTagEl.classList.remove('show');
+  }
+}
+
+const productsLink = menuItems.find(item => item.querySelector('a[href="#products"]'));
+if (productsLink) {
+  productsLink.addEventListener('click', e => {
+    e.preventDefault();
+    spawnProduct();
+  });
+}
+
+// =====================================================================
+//  ETKİLEŞİM (3D) — kutu, kapak, bebek, balon hepsi tutulup sürüklenebilir
 // =====================================================================
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -704,7 +1019,7 @@ canvas.addEventListener('pointerdown', e => {
   const p = new CANNON.Vec3(h.point.x, h.point.y, h.point.z);
   const pivot = grabbed.quaternion.inverse().vmult(p.vsub(grabbed.position));
   jointBody.position.copy(p);
-  constraint = new CANNON.PointToPointConstraint(grabbed, pivot, jointBody, new CANNON.Vec3(0, 0, 0), grabbed.mass * 40);
+  constraint = new CANNON.PointToPointConstraint(grabbed, pivot, jointBody, new CANNON.Vec3(0, 0, 0), grabbed.mass * 40 || 40);
   world.addConstraint(constraint);
 
   grabbed.angularDamping = 0.55;
@@ -724,7 +1039,8 @@ canvas.addEventListener('pointermove', e => {
       );
     }
   } else {
-    canvas.style.cursor = pick() ? 'grab' : 'default';
+    const h = pick();
+    canvas.style.cursor = h ? 'grab' : 'default';
   }
 });
 
@@ -760,6 +1076,14 @@ function rescue(body, y) {
     body.angularVelocity.set(0, 0, 0);
   }
 }
+function placeContactShadow(blob, body, restY) {
+  blob.position.x = body.position.x;
+  blob.position.z = body.position.z;
+  const lift = Math.max(0, body.position.y - restY);
+  const k = 1 / (1 + lift * 1.6);
+  blob.scale.setScalar(THREE.MathUtils.clamp(k, 0.35, 1.15));
+  blob.material.opacity = THREE.MathUtils.clamp(k * 0.6, 0.1, 0.6);
+}
 
 let nextNudge = 0;
 const clock = new THREE.Clock();
@@ -771,13 +1095,15 @@ function tick() {
   rescue(boxBody, 1); rescue(lidBody, 2);
   sync(boxGroup, boxBody);
   sync(lidGroup, lidBody);
+  placeContactShadow(boxShadowBlob, boxBody, H / 2);
+  placeContactShadow(lidShadowBlob, lidBody, H - SH / 2 + LT + 0.003);
 
   if (!opened && lidOffBox()) onLidOpen();
   if (opened) innerLight.intensity += (1.6 - innerLight.intensity) * dt * 2;
 
   candles.forEach(c => c.update(dt));
+  updateProduct(dt);
 
-  // Kullanıcı kutuyu hiç devirmezse hafif bir dürtme (isteğe bağlı, silinebilir)
   if (opened && escapedCount < candles.length && !grabbed && t > nextNudge) {
     boxBody.angularVelocity.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 1.6);
     nextNudge = t + 4;
