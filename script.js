@@ -20,6 +20,12 @@ const hintMain = document.getElementById('hintMain');
 const hintAlt = document.getElementById('hintAlt');
 const a11yOpen = document.getElementById('a11yOpen');
 const fallback = document.getElementById('fallback');
+const productHud = document.getElementById('productHud');
+const productTag = document.getElementById('productTag');
+const productHint = document.getElementById('productHint');
+const cart = document.getElementById('cart');
+const cartCountEl = document.getElementById('cartCount');
+const toast = document.getElementById('toast');
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -78,6 +84,38 @@ function startExperience() {
   let burstTime = 1;
   let snap = null;
   let programTween = null;
+
+  // Ürün sahnesi: balonlu peluş ayı
+  let product = null;
+  let productState = 'hidden'; // hidden | entering | floating | falling | landed
+  let productEnteredAt = 0;
+  let productStartY = 5.2;
+  let productHoverY = 0.12;
+  let productRestY = -0.9;
+  let productScale = 0.7;
+  let productX = 0;
+  let productZ = 2.55;
+  let productVy = 0;
+  let productSpin = 0;
+  let productBounces = 0;
+  let productBaseX = 0;
+  let productBaseY = 0.12;
+  let productMoved = false;
+  const productDragOffset = new THREE.Vector2();
+  const productDragBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  const productDragPlane = new THREE.Plane();
+  const productDragPoint = new THREE.Vector3();
+  const productDragNdc = new THREE.Vector2();
+  let balloonPopped = false;
+  let productAdded = false;
+  let lastBalloonTap = 0;
+  let productTagDismissed = false;
+  let popT = 1;
+  let landingT = 1;
+  let cartCount = 0;
+  let toastTimer = 0;
+  let cameraZoom = 1;
+  let productView = 0;
 
   const holdQuatTarget = new THREE.Quaternion();
   const lidVelocity = new THREE.Vector3();
@@ -981,6 +1019,783 @@ function startExperience() {
     if (object.isMesh) lidPickables.push(object);
   });
 
+  /* ---------- balonlu peluş ayı ---------- */
+
+  const productRoot = new THREE.Group();
+  productRoot.visible = false;
+  scene.add(productRoot);
+
+  const plushMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x95613f,
+    roughness: 0.92,
+    metalness: 0,
+    sheen: 0.42,
+    sheenColor: new THREE.Color(0xffd9b5),
+    sheenRoughness: 0.85,
+    envMapIntensity: 0.45,
+  });
+
+  const plushLightMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xd8ad82,
+    roughness: 0.94,
+    metalness: 0,
+    sheen: 0.3,
+    sheenColor: new THREE.Color(0xfff0dc),
+    sheenRoughness: 0.9,
+    envMapIntensity: 0.4,
+  });
+
+  const plushDarkMaterial = new THREE.MeshStandardMaterial({
+    color: 0x3d2117,
+    roughness: 0.52,
+    metalness: 0.05,
+  });
+
+  const eyeMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x120907,
+    roughness: 0.12,
+    metalness: 0.05,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+    envMapIntensity: 1.4,
+  });
+
+  const balloonMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xa51f42,
+    roughness: 0.16,
+    metalness: 0.08,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08,
+    sheen: 0.3,
+    sheenColor: new THREE.Color(0xffc7d4),
+    sheenRoughness: 0.55,
+    envMapIntensity: 1.25,
+  });
+
+  const stringMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe8cc99,
+    roughness: 0.5,
+    metalness: 0.35,
+  });
+
+  const bearRig = new THREE.Group();
+  productRoot.add(bearRig);
+
+  const unitSphere = new THREE.SphereGeometry(1, 32, 24);
+
+  function addPlushPart(
+    geometry,
+    material,
+    x,
+    y,
+    z,
+    sx = 1,
+    sy = 1,
+    sz = 1,
+    parent = bearRig
+  ) {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    mesh.scale.set(sx, sy, sz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  // Gövde ve karın
+  addPlushPart(unitSphere, plushMaterial, 0, 0, 0, 0.57, 0.64, 0.45);
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    0,
+    -0.07,
+    0.37,
+    0.33,
+    0.41,
+    0.12
+  );
+
+  // Kafa
+  addPlushPart(unitSphere, plushMaterial, 0, 0.78, 0.02, 0.46, 0.41, 0.41);
+  addPlushPart(unitSphere, plushMaterial, -0.34, 1.09, -0.01, 0.17, 0.17, 0.15);
+  addPlushPart(unitSphere, plushMaterial, 0.34, 1.09, -0.01, 0.17, 0.17, 0.15);
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    -0.34,
+    1.1,
+    0.09,
+    0.1,
+    0.1,
+    0.075
+  );
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    0.34,
+    1.1,
+    0.09,
+    0.1,
+    0.1,
+    0.075
+  );
+
+  // Burun ve ağız
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    0,
+    0.69,
+    0.39,
+    0.22,
+    0.16,
+    0.14
+  );
+  addPlushPart(unitSphere, plushDarkMaterial, 0, 0.72, 0.52, 0.075, 0.055, 0.045);
+
+  // Gözler
+  addPlushPart(unitSphere, eyeMaterial, -0.16, 0.85, 0.4, 0.045, 0.052, 0.036);
+  addPlushPart(unitSphere, eyeMaterial, 0.16, 0.85, 0.4, 0.045, 0.052, 0.036);
+  addPlushPart(
+    unitSphere,
+    new THREE.MeshBasicMaterial({ color: 0xfff7e8 }),
+    -0.174,
+    0.87,
+    0.432,
+    0.012,
+    0.014,
+    0.01
+  );
+  addPlushPart(
+    unitSphere,
+    new THREE.MeshBasicMaterial({ color: 0xfff7e8 }),
+    0.146,
+    0.87,
+    0.432,
+    0.012,
+    0.014,
+    0.01
+  );
+
+  // Kollar ve patiler
+  const armGeometry = new THREE.CapsuleGeometry(0.145, 0.34, 6, 12);
+  const leftArm = addPlushPart(
+    armGeometry,
+    plushMaterial,
+    -0.56,
+    0.08,
+    0.02,
+    1,
+    1,
+    1
+  );
+  leftArm.rotation.z = -0.38;
+  const rightArm = addPlushPart(
+    armGeometry,
+    plushMaterial,
+    0.56,
+    0.08,
+    0.02,
+    1,
+    1,
+    1
+  );
+  rightArm.rotation.z = 0.38;
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    -0.69,
+    -0.22,
+    0.08,
+    0.15,
+    0.13,
+    0.16
+  );
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    0.69,
+    -0.22,
+    0.08,
+    0.15,
+    0.13,
+    0.16
+  );
+
+  // Bacaklar ve ayaklar
+  const legGeometry = new THREE.CapsuleGeometry(0.17, 0.25, 6, 12);
+  const leftLeg = addPlushPart(
+    legGeometry,
+    plushMaterial,
+    -0.28,
+    -0.47,
+    0.03,
+    1,
+    1,
+    1
+  );
+  leftLeg.rotation.z = 0.06;
+  const rightLeg = addPlushPart(
+    legGeometry,
+    plushMaterial,
+    0.28,
+    -0.47,
+    0.03,
+    1,
+    1,
+    1
+  );
+  rightLeg.rotation.z = -0.06;
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    -0.3,
+    -0.72,
+    0.18,
+    0.2,
+    0.125,
+    0.24
+  );
+  addPlushPart(
+    unitSphere,
+    plushLightMaterial,
+    0.3,
+    -0.72,
+    0.18,
+    0.2,
+    0.125,
+    0.24
+  );
+
+  // Kuyruk
+  addPlushPart(unitSphere, plushMaterial, 0, -0.16, -0.42, 0.15, 0.15, 0.12);
+
+  const bearPickables = [];
+  bearRig.traverse((object) => {
+    if (object.isMesh) bearPickables.push(object);
+  });
+
+  // Balon ve ip
+  const balloonGroup = new THREE.Group();
+  productRoot.add(balloonGroup);
+
+  const balloonMesh = addPlushPart(
+    unitSphere,
+    balloonMaterial,
+    0,
+    2.0,
+    0.02,
+    0.46,
+    0.53,
+    0.44,
+    balloonGroup
+  );
+  balloonMesh.userData.isBalloon = true;
+
+  const balloonKnot = addPlushPart(
+    new THREE.CylinderGeometry(0.045, 0.075, 0.1, 12),
+    stringMaterial,
+    0,
+    1.44,
+    0.02,
+    1,
+    1,
+    1,
+    balloonGroup
+  );
+  balloonKnot.userData.isBalloon = true;
+
+  const stringCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 1.4, 0.02),
+    new THREE.Vector3(0.12, 1.05, 0.08),
+    new THREE.Vector3(0.38, 0.62, 0.12),
+    new THREE.Vector3(0.6, 0.2, 0.09),
+  ]);
+  const stringMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(stringCurve, 28, 0.012, 6, false),
+    stringMaterial
+  );
+  stringMesh.castShadow = true;
+  balloonGroup.add(stringMesh);
+
+  const balloonHighlight = addPlushPart(
+    unitSphere,
+    new THREE.MeshBasicMaterial({
+      color: 0xfff0e0,
+      transparent: true,
+      opacity: 0.2,
+      depthWrite: false,
+    }),
+    0.14,
+    2.2,
+    0.38,
+    0.12,
+    0.2,
+    0.035,
+    balloonGroup
+  );
+  balloonHighlight.renderOrder = 2;
+
+  // Balon patlama parçacıkları
+  const popCount = REDUCED_MOTION ? 14 : 46;
+  const popPositions = new Float32Array(popCount * 3);
+  const popVelocities = [];
+
+  for (let i = 0; i < popCount; i += 1) {
+    popPositions[i * 3] = 0;
+    popPositions[i * 3 + 1] = 0;
+    popPositions[i * 3 + 2] = 0;
+    popVelocities.push(new THREE.Vector3());
+  }
+
+  const popGeometry = new THREE.BufferGeometry();
+  popGeometry.setAttribute(
+    'position',
+    new THREE.BufferAttribute(popPositions, 3)
+  );
+
+  const popMaterial = new THREE.PointsMaterial({
+    map: sparkTexture,
+    color: 0xff6b88,
+    size: 0.09,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    alphaTest: 0.01,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+
+  const popPoints = new THREE.Points(popGeometry, popMaterial);
+  popPoints.visible = false;
+  scene.add(popPoints);
+
+  const popRingMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffd7a2,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const popRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.22, 0.3, 48),
+    popRingMaterial
+  );
+  popRing.visible = false;
+  popRing.renderOrder = 3;
+  scene.add(popRing);
+
+  const landingRingMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffd7a2,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+  });
+  const landingRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.24, 0.34, 48),
+    landingRingMaterial
+  );
+  landingRing.rotation.x = -Math.PI / 2;
+  landingRing.position.y = FLOOR_Y + 0.008;
+  landingRing.visible = false;
+  scene.add(landingRing);
+
+  const productAnchor = new THREE.Vector3();
+
+  product = {
+    root: productRoot,
+    bear: bearRig,
+    balloon: balloonGroup,
+    balloonMesh,
+    balloonKnot,
+    pickables: [balloonMesh, balloonKnot],
+    bearPickables,
+    popPoints,
+    popVelocities,
+    popRing,
+    landingRing,
+    anchor: productAnchor,
+  };
+
+  /* ---------- ürün kontrolleri ---------- */
+
+  function layoutProduct() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const portrait = aspect < 0.8;
+    const scale = portrait ? 1.0 : window.innerWidth < 1100 ? 0.66 : 0.7;
+
+    productScale = scale;
+    productX = 0;
+    productZ = portrait ? 4.4 : 1.95;
+    productHoverY = portrait ? 0.55 : 0.12;
+    productRestY = FLOOR_Y + 0.85 * scale;
+
+    productRoot.scale.setScalar(scale);
+
+    if (productState !== 'hidden') {
+      lidGroup.visible = !portrait;
+    }
+
+    if (productState === 'hidden') {
+      productBaseX = productX;
+      productBaseY = productHoverY;
+      productRoot.position.set(productX, productStartY, productZ);
+    } else {
+      if (!productMoved) {
+        productBaseX = productX;
+        productBaseY = productHoverY;
+      }
+
+      productRoot.position.x = productBaseX;
+      productRoot.position.z = productZ;
+
+      if (productState === 'floating' || productState === 'entering') {
+        productRoot.position.y = productBaseY;
+      } else if (productState === 'landed') {
+        productRoot.position.y = productRestY;
+      }
+    }
+  }
+
+  function setProductHint(main, alt) {
+    hintMain.textContent = main;
+    hintAlt.textContent = alt;
+  }
+
+  function showToast(message) {
+    toast.textContent = message;
+    toast.classList.add('is-visible');
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove('is-visible');
+    }, 2800);
+  }
+
+  function startProduct() {
+    if (!opened) return;
+
+    closeMenuOnly();
+
+    // Dikey ekranda kapak ürünün önüne park ediyor; ürün sahnesinde
+    // ayının önünü kapatmaması için kapağı geçici olarak saklıyoruz.
+    if (window.innerWidth / window.innerHeight < 0.8) {
+      lidGroup.visible = false;
+    }
+
+    productState = 'entering';
+    productEnteredAt = performance.now();
+    balloonPopped = false;
+    productAdded = false;
+    productTagDismissed = false;
+    productVy = 0;
+    productSpin = 0;
+    productBounces = 0;
+    productBaseX = productX;
+    productBaseY = productHoverY;
+    productMoved = false;
+    popT = 1;
+    landingT = 1;
+    lastBalloonTap = 0;
+
+    productRoot.visible = true;
+    productRoot.position.set(productX, productStartY, productZ);
+    productRoot.rotation.set(0, 0, 0);
+    product.bear.scale.set(1, 1, 1);
+    product.balloon.visible = true;
+    product.balloonMesh.visible = true;
+    product.balloonKnot.visible = true;
+    product.popPoints.visible = false;
+    product.popRing.visible = false;
+    product.landingRing.visible = false;
+    productTag.classList.remove('is-added');
+    productTag.classList.remove('is-popping');
+    productTag.classList.remove('is-visible');
+    productHint.textContent = 'Balona 2 kez tıkla';
+    productHud.setAttribute('aria-hidden', 'false');
+    body.classList.add('product-mode');
+
+    setProductHint('Balona 2 kez tıkla', 'peluş ayı · 100 TL');
+    showToast('Peluş Ayı yukarıdan geliyor · 100 TL');
+    canvas.focus({ preventScroll: true });
+  }
+
+  function popBalloon() {
+    if (!product || balloonPopped) return;
+    if (productState !== 'entering' && productState !== 'floating') return;
+
+    balloonPopped = true;
+    productState = 'falling';
+    productVy = -0.15;
+    productSpin = (Math.random() - 0.5) * 1.8;
+    productBounces = 0;
+
+    product.balloon.visible = false;
+    product.balloonMesh.visible = false;
+    product.balloonKnot.visible = false;
+
+    const balloonWorld = new THREE.Vector3();
+    product.balloonMesh.getWorldPosition(balloonWorld);
+
+    popT = 0;
+    product.popPoints.visible = true;
+    product.popPoints.position.copy(balloonWorld);
+    popMaterial.opacity = 1;
+    const popPositions = product.popPoints.geometry.attributes.position.array;
+    for (let i = 0; i < popCount; i += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 0.28;
+      popPositions[i * 3] = Math.cos(angle) * radius;
+      popPositions[i * 3 + 1] = (Math.random() - 0.35) * 0.28;
+      popPositions[i * 3 + 2] = Math.sin(angle) * radius;
+      product.popVelocities[i].set(
+        Math.cos(angle) * (0.8 + Math.random() * 2.2),
+        0.5 + Math.random() * 2.4,
+        Math.sin(angle) * (0.8 + Math.random() * 2.2)
+      );
+    }
+    product.popPoints.geometry.attributes.position.needsUpdate = true;
+
+    product.popRing.visible = true;
+    product.popRing.position.copy(balloonWorld);
+    product.popRing.scale.setScalar(0.55);
+    product.popRing.lookAt(camera.position);
+    popRingMaterial.opacity = 0.55;
+
+    productTag.classList.add('is-popping');
+    productHint.textContent = 'Balon patladı!';
+    setProductHint('Balon patladı', 'ayı sepete ekleniyor');
+    showToast('Balon patladı · Peluş Ayı düşüyor');
+  }
+
+  function addToCart() {
+    if (!product || productAdded) return;
+    productAdded = true;
+    cartCount += 1;
+
+    cartCountEl.textContent = String(cartCount);
+    cart.setAttribute('aria-hidden', 'false');
+    cart.setAttribute(
+      'aria-label',
+      `Sepet, ${cartCount} ürün, toplam ${cartCount * 100} TL`
+    );
+    body.classList.add('has-cart');
+    cart.classList.remove('is-bumped');
+    void cart.offsetWidth;
+    cart.classList.add('is-bumped');
+
+    productHint.textContent = 'Sepete eklendi ✓';
+    productTag.classList.add('is-added');
+    productTag.classList.add('is-visible');
+    setProductHint('Sepete eklendi', 'Peluş Ayı · 100 TL');
+    showToast(`Peluş Ayı sepete eklendi · 100 TL`);
+  }
+
+  function triggerLandingPuff() {
+    landingT = 0;
+    product.landingRing.visible = true;
+    product.landingRing.position.set(
+      productRoot.position.x,
+      FLOOR_Y + 0.008,
+      productRoot.position.z
+    );
+    product.landingRing.scale.setScalar(0.7);
+    landingRingMaterial.opacity = 0.7;
+  }
+
+  function updateProductEffects(dt) {
+    if (popT < 1) {
+      popT = Math.min(1, popT + dt / 0.9);
+      const positions = product.popPoints.geometry.attributes.position.array;
+
+      for (let i = 0; i < popCount; i += 1) {
+        const velocity = product.popVelocities[i];
+        positions[i * 3] += velocity.x * dt;
+        positions[i * 3 + 1] += velocity.y * dt;
+        positions[i * 3 + 2] += velocity.z * dt;
+        velocity.y -= 2.1 * dt;
+        velocity.multiplyScalar(0.988);
+      }
+
+      product.popPoints.geometry.attributes.position.needsUpdate = true;
+      popMaterial.opacity = Math.max(0, 1 - popT);
+      if (popT >= 1) product.popPoints.visible = false;
+    }
+
+    if (product.popRing.visible) {
+      const ringT = Math.min(1, popT);
+      product.popRing.scale.setScalar(0.55 + ringT * 1.25);
+      popRingMaterial.opacity = Math.max(0, 0.55 * (1 - ringT));
+      if (ringT >= 1) product.popRing.visible = false;
+    }
+
+    if (landingT < 1) {
+      landingT = Math.min(1, landingT + dt / 0.7);
+      product.landingRing.scale.setScalar(0.7 + landingT * 4.6);
+      landingRingMaterial.opacity = Math.max(0, 0.7 * (1 - landingT));
+      if (landingT >= 1) product.landingRing.visible = false;
+    }
+  }
+
+  function updateProductTag() {
+    if (
+      !product ||
+      productState === 'hidden' ||
+      productTagDismissed
+    ) {
+      productTag.classList.remove('is-visible');
+      return;
+    }
+
+    product.root.updateMatrixWorld(true);
+    product.bear.getWorldPosition(product.anchor);
+    product.anchor.project(camera);
+
+    if (product.anchor.z > 1) {
+      productTag.classList.remove('is-visible');
+      return;
+    }
+
+    const sx = (product.anchor.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-product.anchor.y * 0.5 + 0.5) * window.innerHeight;
+    const compact = window.innerWidth < 700;
+    const offset = compact
+      ? Math.min(112, window.innerWidth * 0.27)
+      : 220;
+    const verticalOffset = window.innerWidth < 900 ? -38 : -4;
+
+    const tagWidth = productTag.offsetWidth || (compact ? 148 : 190);
+    const tagHeight = productTag.offsetHeight || 92;
+    const minY = tagHeight / 2 + 18;
+    const maxY = window.innerHeight - tagHeight / 2 - 76;
+    const minX = tagWidth / 2 + 14;
+    const maxX = window.innerWidth - tagWidth / 2 - 14;
+    const rightCenter = sx + offset;
+    const leftCenter = sx - offset;
+    const rightFits = rightCenter <= maxX;
+    const leftFits = leftCenter >= minX;
+
+    let tagX;
+    if (rightFits) {
+      tagX = rightCenter;
+    } else if (leftFits) {
+      tagX = leftCenter;
+    } else {
+      tagX = sx < window.innerWidth / 2 ? rightCenter : leftCenter;
+    }
+
+    const x = THREE.MathUtils.clamp(tagX, minX, maxX);
+    const y = THREE.MathUtils.clamp(sy + verticalOffset, minY, maxY);
+
+    productTag.style.transform = `translate3d(${x.toFixed(
+      1
+    )}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
+    productTag.classList.add('is-visible');
+  }
+
+  function updateProduct(dt, elapsed) {
+    if (!product || productState === 'hidden') return;
+
+    let idleTurn = 0;
+
+    if (productState === 'entering') {
+      const duration = REDUCED_MOTION ? 240 : 1450;
+      const t = Math.min(1, (performance.now() - productEnteredAt) / duration);
+      const e = easeOutCubic(t);
+      productRoot.position.x = productBaseX + Math.sin(t * Math.PI) * 0.1;
+      productRoot.position.z = productZ;
+      productRoot.position.y = THREE.MathUtils.lerp(
+        productStartY,
+        productBaseY,
+        e
+      );
+      idleTurn = 0.18 * (1 - e);
+      productRoot.rotation.z = Math.sin(t * Math.PI * 2) * 0.018 * (1 - e);
+
+      if (t >= 1) {
+        productState = 'floating';
+        productRoot.position.x = productBaseX;
+        productRoot.rotation.z = 0;
+      }
+    } else if (productState === 'floating') {
+      const bob =
+        REDUCED_MOTION || productMoved
+          ? 0
+          : Math.sin(elapsed * 1.55) * 0.045;
+      const sway = REDUCED_MOTION ? 0 : Math.sin(elapsed * 0.82) * 0.02;
+      idleTurn = REDUCED_MOTION ? 0 : Math.sin(elapsed * 0.5) * 0.07;
+      productRoot.position.x = productBaseX;
+      productRoot.position.z = productZ;
+      productRoot.position.y = productBaseY + bob;
+      productRoot.rotation.z = sway;
+    } else if (productState === 'falling') {
+      productVy += GRAVITY * dt;
+      productRoot.position.x = productBaseX;
+      productRoot.position.z = productZ;
+      productRoot.position.y += productVy * dt;
+      productRoot.rotation.z += productSpin * dt;
+      productSpin *= Math.exp(-dt * 0.7);
+
+      if (productRoot.position.y <= productRestY) {
+        productRoot.position.y = productRestY;
+
+        if (productBounces === 0 && Math.abs(productVy) > 1.4) {
+          productBounces += 1;
+          productVy = -productVy * 0.3;
+          product.bear.scale.set(1.13, 0.86, 1.13);
+          triggerLandingPuff();
+        } else {
+          productVy = 0;
+          productSpin = 0;
+          productState = 'landed';
+          productRoot.rotation.z = 0;
+          product.bear.scale.set(1.1, 0.9, 1.1);
+          addToCart();
+        }
+      }
+    } else if (productState === 'landed') {
+      productRoot.position.x = productBaseX;
+      productRoot.position.z = productZ;
+      productRoot.position.y = productRestY;
+      productRoot.rotation.z *= Math.exp(-dt * 8);
+    }
+
+    productRoot.rotation.y = idleTurn;
+    productRoot.rotation.x = 0;
+
+    // Patlama sonrası hafif esneme geri toparlanır.
+    const recovery = 1 - Math.exp(-dt * 11);
+    product.bear.scale.x += (1 - product.bear.scale.x) * recovery;
+    product.bear.scale.y += (1 - product.bear.scale.y) * recovery;
+    product.bear.scale.z += (1 - product.bear.scale.z) * recovery;
+
+    updateProductEffects(dt);
+    updateProductTag();
+  }
+
+  function dismissProduct() {
+    if (!product) return;
+    productState = 'hidden';
+    productRoot.visible = false;
+    product.balloon.visible = false;
+    product.popPoints.visible = false;
+    product.popRing.visible = false;
+    product.landingRing.visible = false;
+    lidGroup.visible = true;
+    productTag.classList.remove('is-visible');
+    productTag.classList.remove('is-popping');
+    productTag.classList.remove('is-added');
+    productTagDismissed = true;
+    productHud.setAttribute('aria-hidden', 'true');
+    body.classList.remove('product-mode');
+  }
+
   /* ---------- kamera çerçeveleme ---------- */
 
   function updateFraming() {
@@ -1000,6 +1815,7 @@ function startExperience() {
 
   updateFraming();
   layoutMenu();
+  layoutProduct();
 
   /* ---------- menü düzeni ---------- */
 
@@ -1009,29 +1825,34 @@ function startExperience() {
     const mobile = vw <= 860;
 
     if (!mobile) {
-      const cardW = Math.min(272, Math.max(198, vw * 0.185));
-      const gap = Math.max(12, vw * 0.012);
+      const gap = Math.max(10, Math.min(16, vw * 0.012));
+      const sideMargin = Math.max(18, vw * 0.02);
+      const cardW = Math.min(
+        272,
+        Math.max(150, (vw - sideMargin * 2 - gap * 4) / 5)
+      );
       const step = cardW + gap;
       const total = step * (menuItems.length - 1);
-      const centerY = vh * 0.235;
-      const rotations = [-7, -2.5, 2.5, 7];
+      const centerY = vh * 0.225;
+      const rotations = [-7, -3.2, 0, 3.2, 7];
+      const lifts = [28, 9, 0, 9, 28];
 
       menuItems.forEach((item, i) => {
         item.style.setProperty('--tx', `${(-total / 2 + step * i).toFixed(1)}px`);
         item.style.setProperty(
           '--ty',
-          `${(centerY - vh / 2 + (i === 0 || i === 3 ? 26 : 4)).toFixed(1)}px`
+          `${(centerY - vh / 2 + (lifts[i] ?? 4)).toFixed(1)}px`
         );
         item.style.setProperty('--rot', `${rotations[i] ?? 0}deg`);
-        item.style.setProperty('--d', `${70 + i * 80}ms`);
+        item.style.setProperty('--d', `${70 + i * 70}ms`);
       });
       menu.style.setProperty('--card-w', `${cardW.toFixed(1)}px`);
     } else {
       const cardW = Math.min(340, vw - 54);
-      const stepY = 78;
-      const centerY = Math.max(170, vh * 0.25);
-      const xOffsets = [-8, 7, -5, 8];
-      const rotations = [-1.6, 1.2, -1.1, 1.6];
+      const stepY = 76;
+      const centerY = Math.max(178, vh * 0.25);
+      const xOffsets = [-8, 6, -4, 5, -7];
+      const rotations = [-1.6, 1.2, 0, -1.1, 1.5];
 
       menuItems.forEach((item, i) => {
         item.style.setProperty(
@@ -1043,7 +1864,7 @@ function startExperience() {
           `${(centerY - vh / 2 + (i - (menuItems.length - 1) / 2) * stepY).toFixed(1)}px`
         );
         item.style.setProperty('--rot', `${rotations[i] ?? 0}deg`);
-        item.style.setProperty('--d', `${60 + i * 65}ms`);
+        item.style.setProperty('--d', `${60 + i * 58}ms`);
       });
       menu.style.setProperty('--card-w', `${cardW.toFixed(1)}px`);
     }
@@ -1121,6 +1942,15 @@ function startExperience() {
     }
   }
 
+  function closeMenuOnly() {
+    menu.classList.remove('is-open');
+    menu.setAttribute('aria-hidden', 'true');
+    menu.inert = true;
+    menuLinks.forEach((link) => {
+      link.tabIndex = -1;
+    });
+  }
+
   function triggerMouthFx() {
     ringT = 0;
     ring.visible = true;
@@ -1156,10 +1986,110 @@ function startExperience() {
   }
 
   function hitLid(event) {
+    if (!lidGroup.visible) return false;
     updatePointer(event);
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(lidPickables, false);
     return hits.length > 0;
+  }
+
+  function hitBalloon(event) {
+    if (!product || balloonPopped || !product.balloon.visible) return false;
+    updatePointer(event);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(product.pickables, false);
+    return hits.length > 0;
+  }
+
+  function hitBear(event) {
+    if (
+      !product ||
+      (productState !== 'entering' && productState !== 'floating')
+    ) {
+      return false;
+    }
+    updatePointer(event);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(product.bearPickables, false);
+    return hits.length > 0;
+  }
+
+  function productBearScreen() {
+    productRoot.updateMatrixWorld(true);
+    const point = new THREE.Vector3();
+    product.bear.getWorldPosition(point);
+    point.project(camera);
+    return {
+      x: (point.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-point.y * 0.5 + 0.5) * window.innerHeight,
+    };
+  }
+
+  function computeProductDragBounds() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const bearPoint = new THREE.Vector3();
+    const balloonPoint = new THREE.Vector3();
+    const restPoint = new THREE.Vector3();
+
+    product.bear.getWorldPosition(bearPoint);
+    product.balloonMesh.getWorldPosition(balloonPoint);
+    bearPoint.project(camera);
+    balloonPoint.project(camera);
+    restPoint.set(productBaseX, productRestY, productZ).project(camera);
+
+    const bearY = (-bearPoint.y * 0.5 + 0.5) * vh;
+    const balloonY = (-balloonPoint.y * 0.5 + 0.5) * vh;
+    const restY = (-restPoint.y * 0.5 + 0.5) * vh;
+
+    const marginX = vw < 700 ? 82 : vw < 900 ? 160 : 125;
+    const minY = Math.max(120, bearY - balloonY + 78);
+    let maxY = Math.min(vh - 90, restY - 18);
+    if (maxY < minY + 40) maxY = minY + 40;
+
+    productDragBounds.minX = marginX;
+    productDragBounds.maxX = vw - marginX;
+    productDragBounds.minY = minY;
+    productDragBounds.maxY = maxY;
+  }
+
+  function beginBearDrag(event) {
+    const screen = productBearScreen();
+    productDragOffset.set(
+      screen.x - event.clientX,
+      screen.y - event.clientY
+    );
+    computeProductDragBounds();
+    productDragPlane.setFromNormalAndCoplanarPoint(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, productZ)
+    );
+  }
+
+  function moveProductToScreen(clientX, clientY) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const x = THREE.MathUtils.clamp(
+      clientX,
+      productDragBounds.minX,
+      productDragBounds.maxX
+    );
+    const y = THREE.MathUtils.clamp(
+      clientY,
+      productDragBounds.minY,
+      productDragBounds.maxY
+    );
+
+    productDragNdc.set((x / vw) * 2 - 1, -(y / vh) * 2 + 1);
+    raycaster.setFromCamera(productDragNdc, camera);
+
+    if (raycaster.ray.intersectPlane(productDragPlane, productDragPoint)) {
+      productBaseX = productDragPoint.x;
+      productBaseY = productDragPoint.y;
+      productRoot.position.x = productBaseX;
+      productRoot.position.y = productBaseY;
+      productRoot.position.z = productZ;
+    }
   }
 
   function setRayFromPointer(event) {
@@ -1190,6 +2120,42 @@ function startExperience() {
     spinVelocity = 0;
     lastEventTime = performance.now();
     activePointerId = event.pointerId;
+
+    if (hitBalloon(event)) {
+      mode = 'balloon';
+      lastMove.x = event.clientX;
+      lastMove.y = event.clientY;
+      canvas.classList.add('is-grabbing');
+      canvas.classList.remove('is-over-lid');
+      canvas.classList.remove('is-over-balloon');
+
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        /* pointer capture desteklenmiyorsa sorun değil */
+      }
+
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
+
+    if (hitBear(event)) {
+      mode = 'bear';
+      beginBearDrag(event);
+      canvas.classList.add('is-grabbing');
+      canvas.classList.remove('is-over-lid');
+      canvas.classList.remove('is-over-balloon');
+      canvas.classList.remove('is-over-bear');
+
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        /* pointer capture desteklenmiyorsa sorun değil */
+      }
+
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
 
     if (hitLid(event)) {
       mode = 'lid';
@@ -1237,12 +2203,35 @@ function startExperience() {
   function onPointerMove(event) {
     if (!mode) {
       if (event.pointerType !== 'touch') {
-        canvas.classList.toggle('is-over-lid', hitLid(event));
+        const overBalloon = hitBalloon(event);
+        const overBear = !overBalloon && hitBear(event);
+        canvas.classList.toggle('is-over-balloon', overBalloon);
+        canvas.classList.toggle('is-over-bear', overBear);
+        canvas.classList.toggle(
+          'is-over-lid',
+          !overBalloon && !overBear && hitLid(event)
+        );
       }
       return;
     }
 
     if (event.pointerId !== activePointerId) return;
+
+    if (mode === 'balloon') {
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
+
+    if (mode === 'bear') {
+      moveProductToScreen(
+        event.clientX + productDragOffset.x,
+        event.clientY + productDragOffset.y
+      );
+      productMoved = true;
+
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
 
     if (mode === 'rotate') {
       const now = performance.now();
@@ -1321,6 +2310,39 @@ function startExperience() {
   function onPointerUp(event) {
     if (!mode) return;
     if (event.pointerId !== activePointerId) return;
+
+    if (mode === 'balloon') {
+      if (hitBalloon(event)) {
+        const now = performance.now();
+        if (now - lastBalloonTap < 430) {
+          lastBalloonTap = 0;
+          popBalloon();
+        } else {
+          lastBalloonTap = now;
+        }
+      }
+      mode = null;
+      activePointerId = null;
+      canvas.classList.remove('is-grabbing');
+      canvas.classList.remove('is-over-balloon');
+      return;
+    }
+
+    if (mode === 'bear') {
+      mode = null;
+      activePointerId = null;
+      canvas.classList.remove('is-grabbing');
+
+      if (event.pointerType !== 'touch') {
+        const overBalloon = hitBalloon(event);
+        const overBear = !overBalloon && hitBear(event);
+        canvas.classList.toggle('is-over-balloon', overBalloon);
+        canvas.classList.toggle('is-over-bear', overBear);
+        canvas.classList.toggle('is-over-lid', !overBalloon && !overBear && hitLid(event));
+      }
+      return;
+    }
+
     if (mode === 'rotate' && performance.now() - lastEventTime > 150) {
       // Kullanıcı döndürmeyi bırakıp beklediyse fırlatma momenti kalmasın.
       spinVelocity = 0;
@@ -1330,7 +2352,14 @@ function startExperience() {
     activePointerId = null;
     canvas.classList.remove('is-grabbing');
     if (event.pointerType !== 'touch') {
-      canvas.classList.toggle('is-over-lid', hitLid(event));
+      const overBalloon = hitBalloon(event);
+      const overBear = !overBalloon && hitBear(event);
+      canvas.classList.toggle('is-over-balloon', overBalloon);
+      canvas.classList.toggle('is-over-bear', overBear);
+      canvas.classList.toggle(
+        'is-over-lid',
+        !overBalloon && !overBear && hitLid(event)
+      );
     }
   }
 
@@ -1500,6 +2529,7 @@ function startExperience() {
   /* ---------- kapanma animasyonları ---------- */
 
   function startClosingSnap() {
+    if (productState !== 'hidden') dismissProduct();
     setOpened(false);
     lidState = 'snapping';
     programTween = null;
@@ -1604,13 +2634,58 @@ function startExperience() {
   window.addEventListener('pointercancel', onPointerUp);
 
   canvas.addEventListener('pointerleave', () => {
-    if (!mode) canvas.classList.remove('is-over-lid');
+    if (!mode) {
+      canvas.classList.remove('is-over-lid');
+      canvas.classList.remove('is-over-balloon');
+      canvas.classList.remove('is-over-bear');
+    }
+  });
+
+  canvas.addEventListener(
+    'wheel',
+    (event) => {
+      event.preventDefault();
+      const delta = THREE.MathUtils.clamp(event.deltaY, -70, 70);
+      cameraZoom = THREE.MathUtils.clamp(
+        cameraZoom + delta * 0.0011,
+        0.8,
+        1.24
+      );
+    },
+    { passive: false }
+  );
+
+  menuLinks.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      if (link.dataset.product === 'bear') {
+        event.preventDefault();
+        startProduct();
+      }
+    });
+  });
+
+  cart.addEventListener('click', () => {
+    if (cartCount === 0) return;
+    showToast(
+      `Sepetinde ${cartCount} adet Peluş Ayı var · ${cartCount * 100} TL`
+    );
   });
 
   window.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && opened) {
       event.preventDefault();
       closeProgrammatically();
+      return;
+    }
+
+    if (
+      (event.key === 'Enter' || event.key === ' ') &&
+      !balloonPopped &&
+      (productState === 'entering' || productState === 'floating') &&
+      (document.activeElement === canvas || document.activeElement === body)
+    ) {
+      event.preventDefault();
+      popBalloon();
     }
   });
 
@@ -1625,6 +2700,7 @@ function startExperience() {
     camera.updateProjectionMatrix();
     updateFraming();
     layoutMenu();
+    layoutProduct();
     if (!opened) setMenuOrigin();
   });
 
@@ -1650,12 +2726,23 @@ function startExperience() {
       worldGroup.position.y = -0.16 * (1 - introEase);
     }
 
-    // Kamera: açılırken biraz geri çekilip kutuyu aşağı kaydırır
+    // Kamera: açılırken biraz geri çekilip kutuyu aşağı kaydırır.
+    // Ürün geldiğinde zemin ve ayı görünsün diye kadraj hafifçe aşağı/geri alınır.
+    const productViewTarget = productState === 'hidden' ? 0 : 1;
+    productView +=
+      (productViewTarget - productView) * (1 - Math.exp(-dt * 3.2));
+
     const frameEase = smoothstep(openProgress);
-    const targetY = THREE.MathUtils.lerp(-0.08, framing.openTargetY, frameEase);
-    const distance =
+    const baseTargetY = THREE.MathUtils.lerp(
+      -0.08,
+      framing.openTargetY,
+      frameEase
+    );
+    const targetY = THREE.MathUtils.lerp(baseTargetY, 0.04, productView);
+    const baseDistance =
       THREE.MathUtils.lerp(framing.closedDist, framing.openDist, frameEase) +
       (1 - easeOutCubic(introProgress)) * 0.65;
+    const distance = (baseDistance + productView * 1.35) * cameraZoom;
 
     camera.position.set(0, targetY + distance * 0.3, distance * 0.955);
     camera.lookAt(0, targetY, 0);
@@ -1865,6 +2952,8 @@ function startExperience() {
       }
       dustGeometry.attributes.position.needsUpdate = true;
     }
+
+    updateProduct(dt, elapsed);
 
     renderer.render(scene, camera);
 
